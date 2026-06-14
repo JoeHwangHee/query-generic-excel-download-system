@@ -11,6 +11,8 @@
 
 > 참고: 원 요구사항의 `.xls` + EasyExcel 메모리절약은 기술적으로 충돌하여 `.xlsx`로 확정.
 
+> 📖 실제 사용 방법(DB 등록 · 쿼리 저장/실행 · 배치)은 [docs/USER_MANUAL.md](docs/USER_MANUAL.md)를 참고하세요.
+
 ## 빌드 / 실행
 ```bash
 ./gradlew shadowJar        # build/libs/query-excel-download.jar (fat jar)
