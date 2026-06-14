@@ -13,10 +13,25 @@
 
 ## 빌드 / 실행
 ```bash
-mvn clean package          # target/query-excel-download.jar (fat jar)
-java -jar target/query-excel-download.jar
+./gradlew shadowJar        # build/libs/query-excel-download.jar (fat jar)
+java -jar build/libs/query-excel-download.jar
 ```
-개발/IntelliJ에서는 `com.qexcel.app.Main` 실행.
+개발/IntelliJ에서는 `com.qexcel.app.Main` 실행. (빌드 도구: Gradle 9.1+ / JDK 25)
+
+### 폐쇄망(오프라인) 빌드
+사내 미러에 본 프로젝트 의존성/Gradle 플러그인이 없으므로, 인터넷이 되는 PC에서
+캐시를 채운 뒤 폐쇄망으로 이관해 `--offline` 으로 빌드한다.
+```bash
+# [인터넷 PC] 전용 캐시 디렉터리로 전체 빌드 → Gradle 배포본·플러그인·의존성 모두 캐시됨
+GRADLE_USER_HOME=./offline-cache ./gradlew shadowJar
+
+# [전달] offline-cache/ + 프로젝트 소스 + gradlew + gradle/wrapper/* 를 폐쇄망으로 복사
+#  - 추가 안정화: gradle/wrapper/gradle-wrapper.properties 의 distributionUrl 을
+#    file: 경로나 사내 미러 URL로 바꾸면 wrapper의 인터넷 다운로드 시도가 사라진다.
+
+# [폐쇄망 PC] 캐시를 지정하고 오프라인 빌드 (JDK 25 필요)
+GRADLE_USER_HOME=./offline-cache ./gradlew shadowJar --offline
+```
 
 ## 설정
 - DB 접속정보: `docs/databases.md` (앱이 관리, JSON 블록). 쿼리 저장 화면의 **DB 추가**로
