@@ -2,6 +2,12 @@ target/
 *.class
 *.log
 
+# Gradle
+.gradle/
+build/
+offline-cache/
+# (wrapper 파일 gradlew, gradlew.bat, gradle/wrapper/* 는 커밋 대상)
+
 # IntelliJ
 .idea/
 *.iml

@@ -1,0 +1,84 @@
+plugins {
+    id 'java'
+    id 'application'
+    // fat jar (maven-shade-plugin 대체). Gradle 9.1+ / Java 25 호환.
+    id 'com.gradleup.shadow' version '9.4.2'
+}
+
+group = 'com.qexcel'
+version = '1.0.0'
+
+repositories {
+    // 사내 미러에는 본 프로젝트 의존성/플러그인이 없으므로, 인터넷 PC에서 캐시를 채운 뒤
+    // 폐쇄망에서 GRADLE_USER_HOME 이관 + --offline 으로 빌드한다(README 참고).
+    // 사내 미러가 일부라도 프록시한다면 아래에 maven { url '<사내 미러 URL>' } 를 우선 추가.
+    mavenCentral()
+}
+
+ext {
+    easyexcelVersion  = '3.3.4'
+    mysqlVersion      = '8.4.0'
+    hikariVersion     = '5.1.0'
+    jacksonVersion    = '2.17.2'
+    datepickerVersion = '11.2.1'
+    slf4jVersion      = '2.0.13'
+    logbackVersion    = '1.5.6'
+    junitVersion      = '5.10.2'
+    h2Version         = '2.2.224'
+}
+
+dependencies {
+    // 제네릭/동적 엑셀 다운로드 (Dynamic Head, 메모리 절약)
+    implementation "com.alibaba:easyexcel:${easyexcelVersion}"
+
+    // DB: MySQL/MariaDB
+    implementation "com.mysql:mysql-connector-j:${mysqlVersion}"
+    implementation "com.zaxxer:HikariCP:${hikariVersion}"
+
+    // 쿼리 정의 JSON 직렬화
+    implementation "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
+    implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${jacksonVersion}"
+
+    // Swing 달력 선택기 (오프라인 jar)
+    implementation "com.github.lgooddatepicker:LGoodDatePicker:${datepickerVersion}"
+
+    // 로깅
+    implementation "org.slf4j:slf4j-api:${slf4jVersion}"
+    implementation "ch.qos.logback:logback-classic:${logbackVersion}"
+
+    // 테스트
+    testImplementation "org.junit.jupiter:junit-jupiter:${junitVersion}"
+    testRuntimeOnly  "org.junit.platform:junit-platform-launcher:1.10.2"
+    // 테스트용 인메모리 DB (DataSourceManager / GenericQueryRunner 검증)
+    testImplementation "com.h2database:h2:${h2Version}"
+}
+
+application {
+    mainClass = 'com.qexcel.app.Main'
+}
+
+// maven.compiler.release=25 + UTF-8 대응. toolchain 자동 다운로드를 피하기 위해
+// release 옵션만 지정한다(=> Gradle 자체를 JDK 25에서 실행해야 함).
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 25
+}
+
+test {
+    useJUnitPlatform()
+}
+
+// 폐쇄망 배포용 fat jar. maven-shade-plugin 설정과 동등하게 맞춘다.
+shadowJar {
+    archiveBaseName = 'query-excel-download'
+    archiveClassifier = ''
+    archiveVersion = ''
+    manifest {
+        attributes 'Main-Class': 'com.qexcel.app.Main'
+    }
+    // module-info / 서명 파일 제외 (다중 jar 병합 시 서명 충돌 방지)
+    exclude 'module-info.class'
+    exclude 'META-INF/*.SF'
+    exclude 'META-INF/*.DSA'
+    exclude 'META-INF/*.RSA'
+}
