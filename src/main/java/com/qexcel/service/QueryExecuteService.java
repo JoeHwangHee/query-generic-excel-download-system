@@ -1,6 +1,9 @@
 package com.qexcel.service;
 
+import com.qexcel.db.DataSourceManager;
+import com.qexcel.db.DbConnectionException;
 import com.qexcel.db.GenericQueryRunner;
+import com.qexcel.model.DbConnectionDef;
 import com.qexcel.model.ParamDef;
 import com.qexcel.model.ParamType;
 import com.qexcel.model.QueryDef;
@@ -9,8 +12,11 @@ import com.qexcel.util.SqlValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.sql.DataSource;
 import java.io.File;
 import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -25,15 +31,21 @@ public class QueryExecuteService {
     private static final Logger log = LoggerFactory.getLogger(QueryExecuteService.class);
 
     private final GenericQueryRunner runner;
+    private final DataSourceManager dataSourceManager;
+    private final DbStoreService dbStoreService;
     private final ExcelExportService excelExportService;
     private final OutputPathService outputPathService;
     private final RunHistoryService runHistoryService;
 
     public QueryExecuteService(GenericQueryRunner runner,
+                               DataSourceManager dataSourceManager,
+                               DbStoreService dbStoreService,
                                ExcelExportService excelExportService,
                                OutputPathService outputPathService,
                                RunHistoryService runHistoryService) {
         this.runner = runner;
+        this.dataSourceManager = dataSourceManager;
+        this.dbStoreService = dbStoreService;
         this.excelExportService = excelExportService;
         this.outputPathService = outputPathService;
         this.runHistoryService = runHistoryService;
@@ -57,6 +69,8 @@ public class QueryExecuteService {
             throw new IllegalArgumentException("입력값 개수가 파라미터 정의와 다릅니다.");
         }
 
+        DataSource dataSource = resolveDataSource(def);
+
         List<Object> bound = new ArrayList<>(inputs.size());
         List<String> display = new ArrayList<>(inputs.size());
         for (int i = 0; i < def.getParams().size(); i++) {
@@ -67,7 +81,7 @@ public class QueryExecuteService {
         }
 
         LocalDateTime now = LocalDateTime.now();
-        QueryResult result = runner.execute(def.getSql(), bound);
+        QueryResult result = runner.execute(dataSource, def.getSql(), bound);
 
         File excel = excelExportService.export(result, outputPathService.excelFile(def.getQueryName(), now));
         File sqlTxt = outputPathService.writeSqlText(def.getQueryName(), now, buildSqlText(def, display));
@@ -76,6 +90,29 @@ public class QueryExecuteService {
         log.info("쿼리 '{}' 실행 완료 -> {}, {}", def.getQueryName(), excel.getName(), sqlTxt.getName());
 
         return new ExecutionOutcome(result.getRowCount(), excel, sqlTxt);
+    }
+
+    /**
+     * 쿼리의 실행 DB 를 해석하고, 접속 가능한지 미리 확인한 DataSource 를 돌려준다.
+     * 접속 불가 시 사용자 안내용 {@link DbConnectionException} 을 던진다.
+     */
+    private DataSource resolveDataSource(QueryDef def) {
+        String dbName = def.getDbName();
+        if (dbName == null || dbName.isBlank()) {
+            throw new DbConnectionException(
+                    "실행할 DB가 지정되지 않았습니다. 쿼리를 다시 저장해 실행 DB를 선택하세요.");
+        }
+        DataSource ds = dataSourceManager.get(dbName); // 미등록 시 IllegalArgumentException
+        DbConnectionDef cfg = dbStoreService.find(dbName);
+        String url = cfg != null ? cfg.getJdbcUrl() : "(알 수 없음)";
+        // 실행 전 접속 가능 여부 사전 점검
+        try (Connection ignored = ds.getConnection()) {
+            return ds;
+        } catch (SQLException e) {
+            throw new DbConnectionException(
+                    "DB '%s'(%s) 에 접속할 수 없습니다. 접속 정보와 네트워크를 확인하세요.\n원인: %s"
+                            .formatted(dbName, url, e.getMessage()), e);
+        }
     }
 
     /** ParamDef 형식에 맞춰 입력값을 JDBC 바인딩 가능한 값으로 변환 */

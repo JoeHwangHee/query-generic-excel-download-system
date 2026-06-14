@@ -22,6 +22,7 @@
         <slf4j.version>2.0.13</slf4j.version>
         <logback.version>1.5.6</logback.version>
         <junit.version>5.10.2</junit.version>
+        <h2.version>2.2.224</h2.version>
     </properties>
 
     <dependencies>
@@ -80,6 +81,13 @@
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- 테스트용 인메모리 DB (DataSourceManager / GenericQueryRunner 검증) -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <version>${h2.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

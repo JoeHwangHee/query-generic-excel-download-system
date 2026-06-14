@@ -25,17 +25,12 @@ public class GenericQueryRunner {
 
     private static final Logger log = LoggerFactory.getLogger(GenericQueryRunner.class);
 
-    private final DataSource dataSource;
-
-    public GenericQueryRunner(DataSource dataSource) {
-        this.dataSource = dataSource;
-    }
-
     /**
-     * @param sql    '?' 위치파라미터 포함 SELECT
-     * @param params '?' 순서대로 바인딩할 값 (문자열/숫자)
+     * @param dataSource 실행 대상 DB 의 DataSource (쿼리마다 다를 수 있어 인자로 받는다)
+     * @param sql        '?' 위치파라미터 포함 SELECT
+     * @param params     '?' 순서대로 바인딩할 값 (문자열/숫자)
      */
-    public QueryResult execute(String sql, List<Object> params) throws SQLException {
+    public QueryResult execute(DataSource dataSource, String sql, List<Object> params) throws SQLException {
         long start = System.currentTimeMillis();
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {

@@ -29,7 +29,7 @@ public class Main {
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             log.info("종료 처리");
-            com.qexcel.db.DataSourceProvider.shutdown();
+            ctx.dataSources().shutdownAll();
         }));
     }
 }

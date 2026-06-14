@@ -16,6 +16,8 @@ public class QueryDef {
     private List<ParamDef> params = new ArrayList<>();
     /** 배치 실행 조건 */
     private ScheduleType schedule = ScheduleType.NONE;
+    /** 실행 대상 DB 설정명 ({@link DbConnectionDef#getName()} 참조) */
+    private String dbName;
 
     public QueryDef() {
     }
@@ -50,5 +52,13 @@ public class QueryDef {
 
     public void setSchedule(ScheduleType schedule) {
         this.schedule = schedule;
+    }
+
+    public String getDbName() {
+        return dbName;
+    }
+
+    public void setDbName(String dbName) {
+        this.dbName = dbName;
     }
 }

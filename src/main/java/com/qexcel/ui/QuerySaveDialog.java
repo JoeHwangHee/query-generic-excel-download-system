@@ -2,6 +2,7 @@ package com.qexcel.ui;
 
 import com.qexcel.app.AppContext;
 import com.qexcel.model.DateFormatType;
+import com.qexcel.model.DbConnectionDef;
 import com.qexcel.model.ParamDef;
 import com.qexcel.model.ParamType;
 import com.qexcel.model.QueryDef;
@@ -34,6 +35,7 @@ public class QuerySaveDialog extends JDialog {
     private final JTextField nameField = new JTextField(24);
     private final JTextArea sqlArea = new JTextArea(8, 36);
     private final JComboBox<ScheduleType> scheduleBox = new JComboBox<>(ScheduleType.values());
+    private final JComboBox<String> dbBox = new JComboBox<>();
     private final JPanel paramPanel = new JPanel();
     private final List<ParamRow> paramRows = new ArrayList<>();
 
@@ -52,6 +54,14 @@ public class QuerySaveDialog extends JDialog {
         parseBtn.addActionListener(e -> rebuildParams());
         top.add(parseBtn);
         top.add(labeled("배치조건", scheduleBox));
+
+        JButton addDbBtn = new JButton("DB 추가");
+        addDbBtn.addActionListener(e -> openDbDialog());
+        JPanel dbRow = labeled("실행 DB", dbBox);
+        dbRow.add(addDbBtn);
+        top.add(dbRow);
+        reloadDbBox(null);
+
         top.add(new JLabel("파라미터 형식"));
 
         paramPanel.setLayout(new BoxLayout(paramPanel, BoxLayout.Y_AXIS));
@@ -71,6 +81,26 @@ public class QuerySaveDialog extends JDialog {
         p.add(new JLabel(label));
         p.add(c);
         return p;
+    }
+
+    /** 등록된 DB 목록으로 콤보를 다시 채우고, 지정한 이름을 선택한다. */
+    private void reloadDbBox(String select) {
+        dbBox.removeAllItems();
+        for (DbConnectionDef d : ctx.dbStore().findAll()) {
+            dbBox.addItem(d.getName());
+        }
+        if (select != null) {
+            dbBox.setSelectedItem(select);
+        }
+    }
+
+    private void openDbDialog() {
+        DbConnectionDialog dialog = new DbConnectionDialog(
+                (Frame) getOwner(), ctx);
+        dialog.setVisible(true);
+        if (dialog.getSavedName() != null) {
+            reloadDbBox(dialog.getSavedName());
+        }
     }
 
     private void rebuildParams() {
@@ -98,6 +128,11 @@ public class QuerySaveDialog extends JDialog {
             JOptionPane.showMessageDialog(this, "쿼리명과 SQL을 입력하세요.");
             return;
         }
+        String dbName = (String) dbBox.getSelectedItem();
+        if (dbName == null) {
+            JOptionPane.showMessageDialog(this, "실행 DB를 선택하거나 'DB 추가'로 등록하세요.");
+            return;
+        }
         try {
             SqlValidator.validateSelectOnly(sql);
             int placeholders = SqlValidator.countPlaceholders(sql);
@@ -109,6 +144,7 @@ public class QuerySaveDialog extends JDialog {
             def.setQueryName(name);
             def.setSql(sql);
             def.setSchedule((ScheduleType) scheduleBox.getSelectedItem());
+            def.setDbName(dbName);
             List<ParamDef> params = new ArrayList<>();
             for (ParamRow r : paramRows) {
                 params.add(r.toParamDef());
