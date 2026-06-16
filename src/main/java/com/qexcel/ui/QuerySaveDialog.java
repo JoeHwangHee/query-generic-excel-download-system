@@ -35,6 +35,7 @@ public class QuerySaveDialog extends JDialog {
     private final JTextField nameField = new JTextField(24);
     private final JTextArea sqlArea = new JTextArea(8, 36);
     private final JComboBox<ScheduleType> scheduleBox = new JComboBox<>(ScheduleType.values());
+    private final JComboBox<DateFormatType> outputDateBox = new JComboBox<>(DateFormatType.values());
     private final JComboBox<String> dbBox = new JComboBox<>();
     private final JPanel paramPanel = new JPanel();
     private final List<ParamRow> paramRows = new ArrayList<>();
@@ -48,12 +49,17 @@ public class QuerySaveDialog extends JDialog {
         JPanel top = new JPanel();
         top.setLayout(new BoxLayout(top, BoxLayout.Y_AXIS));
         top.add(labeled("쿼리명", nameField));
-        top.add(new JLabel("SQL ( ? 로 변수 위치 지정, SELECT 만 허용 )"));
+        top.add(new JLabel("SQL ( ? 로 변수 위치 지정 / 여러 SELECT 는 ; 로 구분해 각 결과를 시트로 저장"
+                + " / CREATE TEMPORARY TABLE 허용 )"));
         top.add(new JScrollPane(sqlArea));
         JButton parseBtn = new JButton("? 파라미터 인식");
         parseBtn.addActionListener(e -> rebuildParams());
         top.add(parseBtn);
         top.add(labeled("배치조건", scheduleBox));
+
+        // 결과 DATE/DATETIME 컬럼 출력 포맷(쿼리 단위, 기본 YYYY-MM-DD) (#2)
+        outputDateBox.setSelectedItem(DateFormatType.YYYY_MM_DD);
+        top.add(labeled("출력 날짜포맷", outputDateBox));
 
         JButton addDbBtn = new JButton("DB 추가");
         addDbBtn.addActionListener(e -> openDbDialog());
@@ -74,6 +80,11 @@ public class QuerySaveDialog extends JDialog {
         JPanel south = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         south.add(saveBtn);
         add(south, BorderLayout.SOUTH);
+    }
+
+    /** 현재 선택된 출력 날짜포맷(테스트/조회용). */
+    DateFormatType currentOutputDateFormat() {
+        return (DateFormatType) outputDateBox.getSelectedItem();
     }
 
     private JPanel labeled(String label, java.awt.Component c) {
@@ -134,7 +145,7 @@ public class QuerySaveDialog extends JDialog {
             return;
         }
         try {
-            SqlValidator.validateSelectOnly(sql);
+            SqlValidator.validateRunnable(sql);
             int placeholders = SqlValidator.countPlaceholders(sql);
             if (placeholders != paramRows.size()) {
                 JOptionPane.showMessageDialog(this, "'? 파라미터 인식'을 다시 눌러 형식을 지정하세요.");
@@ -145,6 +156,7 @@ public class QuerySaveDialog extends JDialog {
             def.setSql(sql);
             def.setSchedule((ScheduleType) scheduleBox.getSelectedItem());
             def.setDbName(dbName);
+            def.setOutputDateFormat((DateFormatType) outputDateBox.getSelectedItem());
             List<ParamDef> params = new ArrayList<>();
             for (ParamRow r : paramRows) {
                 params.add(r.toParamDef());

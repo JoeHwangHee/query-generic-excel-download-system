@@ -8,9 +8,11 @@ import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
 import java.sql.Statement;
+import java.sql.Types;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GenericQueryRunnerTest {
 
@@ -57,5 +59,43 @@ class GenericQueryRunnerTest {
         QueryResult result = runner.execute(
                 ds, "SELECT id FROM emp WHERE id = ?", List.of(999));
         assertEquals(0, result.getRowCount());
+    }
+
+    @Test
+    void executeScriptRunsMultipleSelectsInOrder() throws Exception {
+        // 구문별로 '?' 파라미터가 순서대로 분배되어야 한다(구문1: 1개, 구문2: 1개).
+        // H2 는 따옴표 없는 별칭을 대문자로 올리므로 별칭을 따옴표로 명시한다.
+        List<QueryResult> results = runner.executeScript(
+                ds,
+                List.of("SELECT name AS \"nm\" FROM emp WHERE id = ?",
+                        "SELECT id AS \"no\" FROM emp WHERE name = ?"),
+                List.of(1, "이"));
+
+        assertEquals(2, results.size());
+        assertEquals("김", results.get(0).getRows().get(0).get("nm"));
+        assertEquals(2, ((Number) results.get(1).getRows().get(0).get("no")).intValue());
+    }
+
+    @Test
+    void executeScriptCreatesTemporaryTableVisibleToLaterSelect() throws Exception {
+        // 임시테이블 DDL 은 같은 커넥션에서 먼저 실행되고, SELECT 결과만 반환된다
+        List<QueryResult> results = runner.executeScript(
+                ds,
+                List.of("CREATE LOCAL TEMPORARY TABLE tmp AS SELECT id FROM emp WHERE id = ?",
+                        "SELECT id AS \"no\" FROM tmp"),
+                List.of(2));
+
+        assertEquals(1, results.size());
+        assertEquals(1, results.get(0).getRowCount());
+        assertEquals(2, ((Number) results.get(0).getRows().get(0).get("no")).intValue());
+    }
+
+    @Test
+    void collectsColumnSqlTypes() throws Exception {
+        QueryResult result = runner.execute(
+                ds, "SELECT CAST(? AS DATE) AS d, id FROM emp WHERE id = ?", List.of("2026-06-16", 1));
+        // 첫 컬럼은 DATE 타입으로 수집되어야 한다
+        assertEquals(Types.DATE, result.getColumnTypes().get(0));
+        assertTrue(result.getColumnTypes().size() == 2);
     }
 }

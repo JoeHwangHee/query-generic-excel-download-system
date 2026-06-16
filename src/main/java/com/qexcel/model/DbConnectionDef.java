@@ -9,6 +9,7 @@ package com.qexcel.model;
 public class DbConnectionDef {
 
     public static final String DEFAULT_DRIVER = "com.mysql.cj.jdbc.Driver";
+    public static final String MARIADB_DRIVER = "org.mariadb.jdbc.Driver";
 
     /** 설정명 (식별자 / 콤보박스 표시) */
     private String name;

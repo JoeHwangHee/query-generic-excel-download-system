@@ -18,6 +18,11 @@ public class QueryDef {
     private ScheduleType schedule = ScheduleType.NONE;
     /** 실행 대상 DB 설정명 ({@link DbConnectionDef#getName()} 참조) */
     private String dbName;
+    /**
+     * 결과의 DATE/DATETIME 컬럼을 엑셀에 출력할 때 적용할 날짜 포맷.
+     * (입력 파싱용 {@link ParamDef#getDateFormat()} 과는 별개)
+     */
+    private DateFormatType outputDateFormat = DateFormatType.YYYY_MM_DD;
 
     public QueryDef() {
     }
@@ -60,5 +65,13 @@ public class QueryDef {
 
     public void setDbName(String dbName) {
         this.dbName = dbName;
+    }
+
+    public DateFormatType getOutputDateFormat() {
+        return outputDateFormat;
+    }
+
+    public void setOutputDateFormat(DateFormatType outputDateFormat) {
+        this.outputDateFormat = outputDateFormat;
     }
 }

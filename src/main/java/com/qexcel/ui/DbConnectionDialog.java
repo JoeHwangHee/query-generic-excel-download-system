@@ -5,6 +5,7 @@ import com.qexcel.model.DbConnectionDef;
 
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -28,7 +29,9 @@ public class DbConnectionDialog extends JDialog {
     private final JTextField urlField = new JTextField(28);
     private final JTextField userField = new JTextField(16);
     private final JPasswordField passField = new JPasswordField(16);
-    private final JTextField driverField = new JTextField(24);
+    /** 드라이버: 프리셋(MySQL/MariaDB) 드롭다운 + 직접 입력 허용 */
+    private final JComboBox<String> driverBox = new JComboBox<>(
+            new String[]{DbConnectionDef.DEFAULT_DRIVER, DbConnectionDef.MARIADB_DRIVER});
 
     /** 저장에 성공한 설정명(호출측에서 콤보 선택용). 저장 전에는 null. */
     private transient String savedName;
@@ -36,7 +39,7 @@ public class DbConnectionDialog extends JDialog {
     public DbConnectionDialog(Frame owner, AppContext ctx) {
         super(owner, "DB 추가", Dialog.ModalityType.APPLICATION_MODAL);
         this.ctx = ctx;
-        driverField.setText(DbConnectionDef.DEFAULT_DRIVER);
+        driverBox.setEditable(true); // 프리셋 외 임의 드라이버 직접 입력 허용
         setSize(520, 320);
         setLocationRelativeTo(owner);
 
@@ -46,7 +49,7 @@ public class DbConnectionDialog extends JDialog {
         form.add(labeled("JDBC URL", urlField));
         form.add(labeled("사용자", userField));
         form.add(labeled("비밀번호", passField));
-        form.add(labeled("드라이버", driverField));
+        form.add(labeled("드라이버", driverBox));
         add(form, BorderLayout.CENTER);
 
         JButton testBtn = new JButton("연결 테스트");
@@ -63,6 +66,14 @@ public class DbConnectionDialog extends JDialog {
         return savedName;
     }
 
+    /** 콤보(편집형)에서 현재 드라이버 문자열을 추출한다(직접 입력 포함). */
+    String currentDriver() {
+        Object item = driverBox.isEditable()
+                ? driverBox.getEditor().getItem()
+                : driverBox.getSelectedItem();
+        return item == null ? "" : item.toString().trim();
+    }
+
     private JPanel labeled(String label, java.awt.Component c) {
         JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT));
         p.add(new JLabel(label));
@@ -74,7 +85,7 @@ public class DbConnectionDialog extends JDialog {
     private DbConnectionDef collect() {
         String name = nameField.getText().trim();
         String url = urlField.getText().trim();
-        String driver = driverField.getText().trim();
+        String driver = currentDriver();
         if (name.isEmpty() || url.isEmpty() || driver.isEmpty()) {
             JOptionPane.showMessageDialog(this, "설정명 / JDBC URL / 드라이버는 필수입니다.");
             return null;

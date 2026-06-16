@@ -1,50 +1,64 @@
 package com.qexcel.util;
 
+import java.util.List;
 import java.util.regex.Pattern;
 
 /**
  * 사용자가 입력한 임의 SQL에 대한 최소한의 안전성 검증.
- * - SELECT 문만 허용 (DML/DDL 차단)
- * - '?' 위치파라미터 개수 계산 (문자열 리터럴 안의 '?'는 제외)
+ * - 여러 구문은 {@code ;} 로 구분하며, 각 구문은 SELECT 또는 CREATE TEMPORARY TABLE 만 허용
+ * - SELECT 가 최소 1개 있어야 함(내보낼 결과 필요)
+ * - '?' 위치파라미터 개수 계산 (문자열 리터럴/주석 안의 '?'는 제외)
  */
 public final class SqlValidator {
 
     private static final Pattern LEADING_SELECT =
             Pattern.compile("^\\s*select\\b", Pattern.CASE_INSENSITIVE);
 
-    // 세미콜론으로 분리된 추가 구문(멀티 스테이트먼트) 차단용
-    private static final Pattern FORBIDDEN =
-            Pattern.compile("\\b(insert|update|delete|drop|alter|truncate|create|grant|revoke|merge|call|exec)\\b",
+    // CREATE [GLOBAL|LOCAL] TEMPORARY TABLE ... (... AS SELECT / LIKE 포함)
+    private static final Pattern TEMP_TABLE =
+            Pattern.compile("^\\s*create\\s+(global\\s+|local\\s+)?temporary\\s+table\\b",
                     Pattern.CASE_INSENSITIVE);
 
     private SqlValidator() {
     }
 
-    /** SELECT 단일 구문인지 검증. 위반 시 IllegalArgumentException. */
-    public static void validateSelectOnly(String sql) {
+    /**
+     * 실행 가능한 스크립트인지 검증한다.
+     * 각 구문은 SELECT 또는 CREATE TEMPORARY TABLE 이어야 하고, SELECT 가 1개 이상 있어야 한다.
+     * 위반 시 {@link IllegalArgumentException}.
+     */
+    public static void validateRunnable(String sql) {
         if (sql == null || sql.isBlank()) {
             throw new IllegalArgumentException("SQL이 비어 있습니다.");
         }
-        String stripped = stripStringLiterals(sql);
-        if (!LEADING_SELECT.matcher(stripped).find()) {
-            throw new IllegalArgumentException("SELECT 문만 허용됩니다.");
+        List<String> statements = SqlScript.split(sql);
+        if (statements.isEmpty()) {
+            throw new IllegalArgumentException("실행할 SQL 구문이 없습니다.");
         }
-        // 마지막 세미콜론 제거 후 내부에 또 다른 구문/금지 키워드가 있는지 확인
-        String body = stripped.strip();
-        if (body.endsWith(";")) {
-            body = body.substring(0, body.length() - 1);
+        int selectCount = 0;
+        for (String stmt : statements) {
+            if (LEADING_SELECT.matcher(stmt).find()) {
+                selectCount++;
+            } else if (!TEMP_TABLE.matcher(stmt).find()) {
+                throw new IllegalArgumentException("허용되지 않는 구문입니다: " + preview(stmt));
+            }
         }
-        if (body.contains(";")) {
-            throw new IllegalArgumentException("여러 SQL 구문은 허용되지 않습니다.");
-        }
-        if (FORBIDDEN.matcher(body).find()) {
-            throw new IllegalArgumentException("허용되지 않는 키워드가 포함되어 있습니다.");
+        if (selectCount == 0) {
+            throw new IllegalArgumentException("내보낼 SELECT 구문이 최소 1개 필요합니다.");
         }
     }
 
-    /** 문자열 리터럴 밖의 '?' 개수를 센다. */
+    /**
+     * 하위호환 별칭. 단일 SELECT 검증 호출부가 그대로 동작하도록 {@link #validateRunnable} 로 위임한다.
+     * (DELETE/DROP 등은 여전히 거부된다.)
+     */
+    public static void validateSelectOnly(String sql) {
+        validateRunnable(sql);
+    }
+
+    /** 문자열 리터럴/주석 밖의 '?' 개수를 센다. */
     public static int countPlaceholders(String sql) {
-        String stripped = stripStringLiterals(sql);
+        String stripped = SqlScript.stripNonCode(sql);
         int count = 0;
         for (int i = 0; i < stripped.length(); i++) {
             if (stripped.charAt(i) == '?') {
@@ -54,24 +68,9 @@ public final class SqlValidator {
         return count;
     }
 
-    /** '...' 작은따옴표 문자열 리터럴을 공백으로 치환해 오인식을 방지한다. */
-    static String stripStringLiterals(String sql) {
-        StringBuilder sb = new StringBuilder(sql.length());
-        boolean inStr = false;
-        for (int i = 0; i < sql.length(); i++) {
-            char c = sql.charAt(i);
-            if (c == '\'') {
-                // '' 이스케이프 처리
-                if (inStr && i + 1 < sql.length() && sql.charAt(i + 1) == '\'') {
-                    i++;
-                    continue;
-                }
-                inStr = !inStr;
-                sb.append(' ');
-            } else {
-                sb.append(inStr ? ' ' : c);
-            }
-        }
-        return sb.toString();
+    /** 오류 메시지에 쓸 구문 앞부분 미리보기(최대 40자). */
+    private static String preview(String stmt) {
+        String s = stmt.strip();
+        return s.length() <= 40 ? s : s.substring(0, 40) + "...";
     }
 }
