@@ -1,6 +1,7 @@
 package com.qexcel.ui;
 
 import com.qexcel.app.AppContext;
+import com.qexcel.model.DateFormatType;
 import org.junit.jupiter.api.Test;
 
 import java.awt.GraphicsEnvironment;
@@ -18,5 +19,13 @@ class QuerySaveDialogTest {
         assumeFalse(GraphicsEnvironment.isHeadless());
         QuerySaveDialog dialog = new QuerySaveDialog(null, new AppContext());
         assertEquals("쿼리 저장", dialog.getTitle());
+    }
+
+    @Test
+    void outputDateFormatDefaultsToHyphen() {
+        assumeFalse(GraphicsEnvironment.isHeadless());
+        // 출력 날짜포맷 기본값은 YYYY-MM-DD 이어야 한다(#2)
+        QuerySaveDialog dialog = new QuerySaveDialog(null, new AppContext());
+        assertEquals(DateFormatType.YYYY_MM_DD, dialog.currentOutputDateFormat());
     }
 }

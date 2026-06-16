@@ -10,16 +10,24 @@ public class QueryResult {
 
     /** ResultSetMetaData 순서대로의 컬럼명 */
     private final List<String> columns;
+    /** 컬럼별 SQL 타입({@link java.sql.Types}), {@link #columns} 와 같은 순서 */
+    private final List<Integer> columnTypes;
     /** 행 목록 (컬럼명 -> 값), 컬럼 순서 보존 */
     private final List<LinkedHashMap<String, Object>> rows;
 
-    public QueryResult(List<String> columns, List<LinkedHashMap<String, Object>> rows) {
+    public QueryResult(List<String> columns, List<Integer> columnTypes,
+                       List<LinkedHashMap<String, Object>> rows) {
         this.columns = columns;
+        this.columnTypes = columnTypes;
         this.rows = rows;
     }
 
     public List<String> getColumns() {
         return columns;
+    }
+
+    public List<Integer> getColumnTypes() {
+        return columnTypes;
     }
 
     public List<LinkedHashMap<String, Object>> getRows() {

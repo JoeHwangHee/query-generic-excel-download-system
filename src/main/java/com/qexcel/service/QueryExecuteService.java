@@ -8,6 +8,7 @@ import com.qexcel.model.ParamDef;
 import com.qexcel.model.ParamType;
 import com.qexcel.model.QueryDef;
 import com.qexcel.model.QueryResult;
+import com.qexcel.util.SqlScript;
 import com.qexcel.util.SqlValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,7 +58,7 @@ public class QueryExecuteService {
      * @return 실행 결과(엑셀/SQL 파일 경로 포함)
      */
     public ExecutionOutcome execute(QueryDef def, List<Object> inputs) throws Exception {
-        SqlValidator.validateSelectOnly(def.getSql());
+        SqlValidator.validateRunnable(def.getSql());
 
         int placeholders = SqlValidator.countPlaceholders(def.getSql());
         if (placeholders != def.getParams().size()) {
@@ -81,15 +82,20 @@ public class QueryExecuteService {
         }
 
         LocalDateTime now = LocalDateTime.now();
-        QueryResult result = runner.execute(dataSource, def.getSql(), bound);
+        List<String> statements = SqlScript.split(def.getSql());
+        List<QueryResult> results = runner.executeScript(dataSource, statements, bound);
+        List<String> sheetNames = ExcelExportService.sheetNames(def.getQueryName(), results.size());
 
-        File excel = excelExportService.export(result, outputPathService.excelFile(def.getQueryName(), now));
+        File excel = excelExportService.exportSheets(results, sheetNames,
+                def.getOutputDateFormat(), outputPathService.excelFile(def.getQueryName(), now));
         File sqlTxt = outputPathService.writeSqlText(def.getQueryName(), now, buildSqlText(def, display));
 
+        int totalRows = results.stream().mapToInt(QueryResult::getRowCount).sum();
         runHistoryService.markRun(def.getQueryName(), now.toLocalDate());
-        log.info("쿼리 '{}' 실행 완료 -> {}, {}", def.getQueryName(), excel.getName(), sqlTxt.getName());
+        log.info("쿼리 '{}' 실행 완료 -> {} ({}시트, 총 {}행), {}",
+                def.getQueryName(), excel.getName(), results.size(), totalRows, sqlTxt.getName());
 
-        return new ExecutionOutcome(result.getRowCount(), excel, sqlTxt);
+        return new ExecutionOutcome(totalRows, results.size(), excel, sqlTxt);
     }
 
     /**
@@ -161,6 +167,6 @@ public class QueryExecuteService {
         }
     }
 
-    public record ExecutionOutcome(int rowCount, File excelFile, File sqlFile) {
+    public record ExecutionOutcome(int rowCount, int sheetCount, File excelFile, File sqlFile) {
     }
 }
